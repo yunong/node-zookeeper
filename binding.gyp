@@ -8,7 +8,7 @@
       "target_name": "zookeeper",
       'dependencies': ['libzk'],
       "sources": [ "src/node-zk.cpp" ],
-      'cflags': ['-Wall', '-Werror', '-O0'],
+      'cflags': ['-Wall', '-O0'],
       'conditions': [
         ['OS=="solaris"', {
           'cflags': ['-Wno-strict-aliasing'],
