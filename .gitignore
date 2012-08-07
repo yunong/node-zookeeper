@@ -1,7 +1,6 @@
 build
 node_modules
 npm-debug.log
-.lock-wscript
 *.tgz
 deps/zookeeper-3.4.3/src/c/.deps/
 deps/zookeeper-3.4.3/src/c/.libs/
