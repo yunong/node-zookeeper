@@ -25,12 +25,12 @@ using namespace node;
 #define DEFINE_SYMBOL(ev)   DEFINE_STRING(ev, #ev)
 #define _LL_CAST_ (long long)
 #define _LLP_CAST_ (long long *)
-#define THROW_IF_NOT(condition, text) if (!(condition)) {		\
-	return ThrowException(Exception::Error (String::New(text)));	\
+#define THROW_IF_NOT(condition, text) if (!(condition)) {               \
+        return ThrowException(Exception::Error (String::New(text)));    \
     }
-#define THROW_IF_NOT_R(condition, text) if (!(condition)) {	\
-	ThrowException(Exception::Error (String::New(text)));	\
-	return;							\
+#define THROW_IF_NOT_R(condition, text) if (!(condition)) {     \
+        ThrowException(Exception::Error (String::New(text)));   \
+        return;                                                 \
     }
 #define ZERO_MEM(member) bzero(&(member), sizeof(member))
 #define ZOOKEEPER_PASSWORD_BYTE_COUNT 16
@@ -213,104 +213,104 @@ public:
         NODE_DEFINE_CONSTANT(constructor_template, ZSESSIONMOVED);
 
         //what's the advantage of using
-	// constructor_template->PrototypeTemplate()->SetAccessor ?
+        // constructor_template->PrototypeTemplate()->SetAccessor ?
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("state"),
-							      StatePropertyGetter,
-							      0,
-							      Local<Value>(),
-							      PROHIBITS_OVERWRITING,
-							      ReadOnly);
+                                                              StatePropertyGetter,
+                                                              0,
+                                                              Local<Value>(),
+                                                              PROHIBITS_OVERWRITING,
+                                                              ReadOnly);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("client_id"),
-							      ClientidPropertyGetter,
-							      0,
-							      Local<Value>(),
-							      PROHIBITS_OVERWRITING, ReadOnly);
+                                                              ClientidPropertyGetter,
+                                                              0,
+                                                              Local<Value>(),
+                                                              PROHIBITS_OVERWRITING, ReadOnly);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("client_password"),
-							      ClientPasswordPropertyGetter,
-							      0,
-							      Local<Value>(),
-							      PROHIBITS_OVERWRITING, ReadOnly);
+                                                              ClientPasswordPropertyGetter,
+                                                              0,
+                                                              Local<Value>(),
+                                                              PROHIBITS_OVERWRITING, ReadOnly);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("timeout"),
-							      SessionTimeoutPropertyGetter,
-							      0,
-							      Local<Value>(),
-							      PROHIBITS_OVERWRITING,
-							      ReadOnly);
+                                                              SessionTimeoutPropertyGetter,
+                                                              0,
+                                                              Local<Value>(),
+                                                              PROHIBITS_OVERWRITING,
+                                                              ReadOnly);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("is_unrecoverable"),
-							      IsUnrecoverablePropertyGetter,
-							      0,
-							      Local<Value>(),
-							      PROHIBITS_OVERWRITING, ReadOnly);
+                                                              IsUnrecoverablePropertyGetter,
+                                                              0,
+                                                              Local<Value>(),
+                                                              PROHIBITS_OVERWRITING, ReadOnly);
 
         target->Set(String::NewSymbol("ZooKeeper"), constructor_template->GetFunction());
     }
 
     static Handle<Value> New (const Arguments& args) {
-	HandleScope scope;
-	ZooKeeper *zk = new ZooKeeper ();
+        HandleScope scope;
+        ZooKeeper *zk = new ZooKeeper ();
 
-	zk->Wrap(args.This());
-	return args.This();
+        zk->Wrap(args.This());
+        return args.This();
     }
 
     void stopPollAndTimer() {
         if (uv_is_active((const uv_handle_t *)&zk_uvp_handle))
-	    uv_poll_stop(&zk_uvp_handle);
+            uv_poll_stop(&zk_uvp_handle);
         if (uv_is_active((const uv_handle_t *)&zk_uvt_timer))
-	    uv_timer_stop(&zk_uvt_timer);
+            uv_timer_stop(&zk_uvt_timer);
     }
 
     void startPollAndTimer(int fd, int interest, struct timeval *tv) {
-	int events;
-	int timeout;
+        int events;
+        int timeout;
 
         timeout = (tv->tv_sec * 1000) + (tv->tv_usec / 1000);
 
         events = (interest & ZOOKEEPER_READ ? UV_READABLE : 0) |
-	    (interest & ZOOKEEPER_WRITE ? UV_WRITABLE : 0);
+            (interest & ZOOKEEPER_WRITE ? UV_WRITABLE : 0);
         LOG_DEBUG(("Interest in (fd=%i, read=%s, write=%s)",
                    fd,
                    events & UV_READABLE ? "true" : "false",
                    events & UV_WRITABLE ? "true" : "false"));
 
-	uv_poll_init(uv_default_loop(), &zk_uvp_handle, fd);
-	uv_timer_init(uv_default_loop(), &zk_uvt_timer);
-	zk_uvp_handle.data = zk_uvt_timer.data = this;
+        uv_poll_init(uv_default_loop(), &zk_uvp_handle, fd);
+        uv_timer_init(uv_default_loop(), &zk_uvt_timer);
+        zk_uvp_handle.data = zk_uvt_timer.data = this;
 
-	uv_poll_start(&zk_uvp_handle, events, zk_uv_cb);
-	uv_timer_start(&zk_uvt_timer, zk_timer_cb, timeout, 0);
+        uv_poll_start(&zk_uvp_handle, events, zk_uv_cb);
+        uv_timer_start(&zk_uvt_timer, zk_timer_cb, timeout, 0);
     }
 
     void yield () {
-	int fd;
-	int interest;
-	int rc;
-	struct timeval tv;
+        int fd;
+        int interest;
+        int rc;
+        struct timeval tv;
 
         if (is_closed) {
             return;
         }
 
-	stopPollAndTimer();
+        stopPollAndTimer();
 
         rc = zookeeper_interest(zhandle, &fd, &interest, &tv);
         if (rc) {
-	    LOG_ERROR(("yield:zookeeper_interest returned error: %d - %s\n",
-		       rc,
-		       zerror(rc)));
-	    return;
+            LOG_ERROR(("yield:zookeeper_interest returned error: %d - %s\n",
+                       rc,
+                       zerror(rc)));
+            return;
         }
 
-	startPollAndTimer(fd, interest, &tv);
+        startPollAndTimer(fd, interest, &tv);
     }
 
     static void zk_uv_cb (uv_poll_t* handle, int status, int revents) {
 
         LOG_DEBUG(("zk_io_cb fired"));
         ZooKeeper *zk = static_cast<ZooKeeper*>(handle->data);
-	zk->stopPollAndTimer();
+        zk->stopPollAndTimer();
         int events = (revents & UV_READABLE ? ZOOKEEPER_READ : 0) |
-	    (revents & UV_WRITABLE? ZOOKEEPER_WRITE : 0);
+            (revents & UV_WRITABLE? ZOOKEEPER_WRITE : 0);
         int rc = zookeeper_process(zk->zhandle, events);
         if (rc != ZOK) {
             LOG_ERROR(("yield:zookeeper_process returned error: %d - %s\n", rc, zerror(rc)));
@@ -321,7 +321,7 @@ public:
     static void zk_timer_cb (uv_timer_t *handle, int status) {
         LOG_DEBUG(("zk_timer_cb fired"));
         ZooKeeper *zk = static_cast<ZooKeeper*>(handle->data);
-	zk->yield();
+        zk->yield();
     }
 
     inline bool realInit (const char* hostPort, int session_timeout, clientid_t *client_id) {
@@ -358,19 +358,19 @@ public:
         ZERO_MEM (local_client);
         v8::Local<v8::Value> v8v_client_id = arg->Get(String::NewSymbol("client_id"));
         v8::Local<v8::Value> v8v_client_password =
-	    arg->Get(String::NewSymbol("client_password"));
+            arg->Get(String::NewSymbol("client_password"));
         bool id_and_password_defined = (!v8v_client_id->IsUndefined() &&
-					!v8v_client_password->IsUndefined());
+                                        !v8v_client_password->IsUndefined());
         bool id_and_password_undefined = (v8v_client_id->IsUndefined() &&
-					  v8v_client_password->IsUndefined());
+                                          v8v_client_password->IsUndefined());
         THROW_IF_NOT ((id_and_password_defined || id_and_password_undefined),
-		      "ZK init: client id and password must either be both specified or unspecified");
+                      "ZK init: client id and password must either be both specified or unspecified");
         if (id_and_password_defined) {
-	    String::AsciiValue password_check(v8v_client_password->ToString());
-	    THROW_IF_NOT (password_check.length() == 2 * ZOOKEEPER_PASSWORD_BYTE_COUNT,
-			  "ZK init: password does not have correct length");
-	    HexStringToPassword(v8v_client_password, local_client.passwd);
-	    StringToId(v8v_client_id, &local_client.client_id);
+            String::AsciiValue password_check(v8v_client_password->ToString());
+            THROW_IF_NOT (password_check.length() == 2 * ZOOKEEPER_PASSWORD_BYTE_COUNT,
+                          "ZK init: password does not have correct length");
+            HexStringToPassword(v8v_client_password, local_client.passwd);
+            StringToId(v8v_client_id, &local_client.client_id);
         }
 
         ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());
@@ -383,13 +383,13 @@ public:
     }
 
     static void main_watcher(zhandle_t *zzh,
-			     int type,
-			     int state,
-			     const char *path,
-			     void* context) {
+                             int type,
+                             int state,
+                             const char *path,
+                             void* context) {
 
         LOG_DEBUG(("main watcher event: type=%d, state=%d, path=%s",
-		   type, state, (path ? path: "null")));
+                   type, state, (path ? path: "null")));
 
         ZooKeeper *zk = static_cast<ZooKeeper *>(context);
 
@@ -448,8 +448,8 @@ public:
         String::AsciiValue a(s->ToString());
         char *hex = *a;
         for (int i = 0; i < ZOOKEEPER_PASSWORD_BYTE_COUNT; ++i) {
-	    hexToUchar(hex, (unsigned char *)p+i);
-	    hex += 2;
+            hexToUchar(hex, (unsigned char *)p+i);
+            hex += 2;
         }
     }
 
@@ -461,7 +461,7 @@ public:
         if (path != 0) {
             argv[2] = String::New(path);
             LOG_DEBUG (("calling Emit(%s, path='%s')",
-			*String::Utf8Value(event_name), path));
+                        *String::Utf8Value(event_name), path));
         } else {
             argv[2] = Local<Value>::New(Undefined());
             LOG_DEBUG (("calling Emit(%s, path=null)", *String::Utf8Value(event_name)));
@@ -474,84 +474,84 @@ public:
         TryCatch tc;
         emit_fn->Call(handle_, 3, argv);
         if(tc.HasCaught()) {
-	    FatalException(tc);
+            FatalException(tc);
         }
     }
 
-#define CALLBACK_PROLOG(args)						\
-    HandleScope scope;							\
-    Persistent<Function> *callback = cb_unwrap((void*)data);		\
-    assert (callback);							\
-    Local<Value> lv = (*callback)->GetHiddenValue(HIDDEN_PROP_ZK);	\
-    /*(*callback)->DeleteHiddenValue(HIDDEN_PROP_ZK);*/			\
-    Local<Object> zk_handle = Local<Object>::Cast(lv);			\
-    ZooKeeper *zkk = ObjectWrap::Unwrap<ZooKeeper>(zk_handle);		\
-    assert(zkk);							\
-    assert(zkk->handle_ == zk_handle);					\
-    Local<Value> argv[args];						\
-    argv[0] = Int32::New(rc);						\
+#define CALLBACK_PROLOG(args)                                           \
+    HandleScope scope;                                                  \
+    Persistent<Function> *callback = cb_unwrap((void*)data);            \
+    assert (callback);                                                  \
+    Local<Value> lv = (*callback)->GetHiddenValue(HIDDEN_PROP_ZK);      \
+    /*(*callback)->DeleteHiddenValue(HIDDEN_PROP_ZK);*/                 \
+    Local<Object> zk_handle = Local<Object>::Cast(lv);                  \
+    ZooKeeper *zkk = ObjectWrap::Unwrap<ZooKeeper>(zk_handle);          \
+    assert(zkk);                                                        \
+    assert(zkk->handle_ == zk_handle);                                  \
+    Local<Value> argv[args];                                            \
+    argv[0] = Int32::New(rc);                                           \
     argv[1] = String::NewSymbol (zerror(rc))
 
-#define CALLBACK_EPILOG()						\
-    TryCatch try_catch;							\
+#define CALLBACK_EPILOG()                                               \
+    TryCatch try_catch;                                                 \
     (*callback)->Call(v8::Context::GetCurrent()->Global(), sizeof(argv)/sizeof(argv[0]), argv); \
-    if (try_catch.HasCaught()) {					\
-	FatalException(try_catch);					\
-    };									\
+    if (try_catch.HasCaught()) {                                        \
+        FatalException(try_catch);                                      \
+    };                                                                  \
     cb_destroy (callback)
 
-#define WATCHER_CALLBACK_EPILOG()					\
-    TryCatch try_catch;							\
+#define WATCHER_CALLBACK_EPILOG()                                       \
+    TryCatch try_catch;                                                 \
     (*callback)->Call(v8::Context::GetCurrent()->Global(), sizeof(argv)/sizeof(argv[0]), argv); \
-    if (try_catch.HasCaught()) {					\
-	FatalException(try_catch);					\
+    if (try_catch.HasCaught()) {                                        \
+        FatalException(try_catch);                                      \
     };
 
-#define A_METHOD_PROLOG(nargs)						\
-    HandleScope scope;							\
-    ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());		\
-    assert(zk);								\
+#define A_METHOD_PROLOG(nargs)                                          \
+    HandleScope scope;                                                  \
+    ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());         \
+    assert(zk);                                                         \
     THROW_IF_NOT (args.Length() >= nargs, "expected "#nargs" arguments") \
-    assert (args[nargs-1]->IsFunction());				\
-    Persistent<Function> *cb = cb_persist (args[nargs-1]);		\
-    (*cb)->SetHiddenValue(HIDDEN_PROP_ZK, zk->handle_);			\
+    assert (args[nargs-1]->IsFunction());                               \
+    Persistent<Function> *cb = cb_persist (args[nargs-1]);              \
+    (*cb)->SetHiddenValue(HIDDEN_PROP_ZK, zk->handle_);                 \
 
-#define METHOD_EPILOG(call)			\
-    int ret = (call);				\
+#define METHOD_EPILOG(call)                     \
+    int ret = (call);                           \
     return scope.Close(Int32::New(ret))
 
-#define WATCHER_PROLOG(args)						\
-    if (zoo_state(zh) == ZOO_EXPIRED_SESSION_STATE) { return; }		\
-    HandleScope scope;							\
-    Persistent<Function> *callback = cb_unwrap((void*)watcherCtx);	\
-    assert (callback);							\
-    Local<Value> lv_zk = (*callback)->GetHiddenValue(HIDDEN_PROP_ZK);	\
-    /* (*callback)->DeleteHiddenValue(HIDDEN_PROP_ZK); */		\
-    Local<Object> zk_handle = Local<Object>::Cast(lv_zk);		\
-    ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(zk_handle);		\
-    assert(zk);								\
-    assert(zk->handle_ == zk_handle);					\
-    assert(zk->zhandle == zh);						\
-    Local<Value> argv[args];						\
-    argv[0] = Integer::New(type);					\
-    argv[1] = Integer::New(state);					\
-    argv[2] = String::New(path);					\
+#define WATCHER_PROLOG(args)                                            \
+    if (zoo_state(zh) == ZOO_EXPIRED_SESSION_STATE) { return; }         \
+    HandleScope scope;                                                  \
+    Persistent<Function> *callback = cb_unwrap((void*)watcherCtx);      \
+    assert (callback);                                                  \
+    Local<Value> lv_zk = (*callback)->GetHiddenValue(HIDDEN_PROP_ZK);   \
+    /* (*callback)->DeleteHiddenValue(HIDDEN_PROP_ZK); */               \
+    Local<Object> zk_handle = Local<Object>::Cast(lv_zk);               \
+    ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(zk_handle);           \
+    assert(zk);                                                         \
+    assert(zk->handle_ == zk_handle);                                   \
+    assert(zk->zhandle == zh);                                          \
+    Local<Value> argv[args];                                            \
+    argv[0] = Integer::New(type);                                       \
+    argv[1] = Integer::New(state);                                      \
+    argv[2] = String::New(path);                                        \
     Local<Value> lv_hb = (*callback)->GetHiddenValue(HIDDEN_PROP_HANDBACK); \
-    /* (*callback)->DeleteHiddenValue(HIDDEN_PROP_HANDBACK); */		\
-    argv[3] = Local<Value>::New(Undefined ());				\
+    /* (*callback)->DeleteHiddenValue(HIDDEN_PROP_HANDBACK); */         \
+    argv[3] = Local<Value>::New(Undefined ());                          \
     if (!lv_hb.IsEmpty()) argv[3] = lv_hb
 
-#define AW_METHOD_PROLOG(nargs)						\
-    HandleScope scope;							\
-    ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());		\
-    assert(zk);								\
+#define AW_METHOD_PROLOG(nargs)                                         \
+    HandleScope scope;                                                  \
+    ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());         \
+    assert(zk);                                                         \
     THROW_IF_NOT (args.Length() >= nargs, "expected at least "#nargs" arguments") \
-    assert (args[nargs-1]->IsFunction());				\
-    Persistent<Function> *cb = cb_persist (args[nargs-1]);		\
-    (*cb)->SetHiddenValue(HIDDEN_PROP_ZK, zk->handle_);			\
-									\
-    assert (args[nargs-2]->IsFunction());				\
-    Persistent<Function> *cbw = cb_persist (args[nargs-2]);		\
+    assert (args[nargs-1]->IsFunction());                               \
+    Persistent<Function> *cb = cb_persist (args[nargs-1]);              \
+    (*cb)->SetHiddenValue(HIDDEN_PROP_ZK, zk->handle_);                 \
+                                                                        \
+    assert (args[nargs-2]->IsFunction());                               \
+    Persistent<Function> *cbw = cb_persist (args[nargs-2]);             \
     (*cbw)->SetHiddenValue(HIDDEN_PROP_ZK, zk->handle_)
 
     static void string_completion (int rc, const char *value, const void *data) {
@@ -642,13 +642,13 @@ public:
     }
 
     static Handle<Value> Delete (const Arguments& args) {
-	HandleScope scope;
-	ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());
-	assert(zk);
-	String::Utf8Value _path (args[0]->ToString());
-	uint32_t version = args[1]->ToUint32()->Uint32Value();
-	int ret= zoo_delete(zk->zhandle, *_path, version);
-	return scope.Close(Int32::New(ret));
+        HandleScope scope;
+        ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());
+        assert(zk);
+        String::Utf8Value _path (args[0]->ToString());
+        uint32_t version = args[1]->ToUint32()->Uint32Value();
+        int ret= zoo_delete(zk->zhandle, *_path, version);
+        return scope.Close(Int32::New(ret));
     }
 
     static Handle<Value> AGet (const Arguments& args) {
@@ -667,7 +667,7 @@ public:
         AW_METHOD_PROLOG (3);
         String::Utf8Value _path (args[0]->ToString());
         METHOD_EPILOG (zoo_awget(zk->zhandle, *_path,
-				 &watcher_fn, cbw, &data_completion, cb));
+                                 &watcher_fn, cbw, &data_completion, cb));
     }
 
     static Handle<Value> ASet (const Arguments& args) {
@@ -684,8 +684,8 @@ public:
     }
 
     static void strings_completion (int rc,
-				    const struct String_vector *strings,
-				    const void *data) {
+                                    const struct String_vector *strings,
+                                    const void *data) {
         CALLBACK_PROLOG (3);
         LOG_DEBUG(("rc=%d, rc_string=%s", rc, zerror(rc)));
         if (strings != NULL) {
@@ -714,7 +714,7 @@ public:
     }
 
     static void strings_stat_completion (int rc, const struct String_vector *strings,
-					 const struct Stat *stat, const void *data) {
+                                         const struct Stat *stat, const void *data) {
         CALLBACK_PROLOG (4);
         LOG_DEBUG(("rc=%d, rc_string=%s", rc, zerror(rc)));
         if (strings != NULL) {
@@ -760,14 +760,14 @@ public:
         ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(info.This());
         assert(zk);
         return zk->idAsString(zk->zhandle != 0 ?
-			      zoo_client_id(zk->zhandle)->client_id : zk->myid.client_id);
+                              zoo_client_id(zk->zhandle)->client_id : zk->myid.client_id);
     }
     static Handle<Value> ClientPasswordPropertyGetter (Local<String> property, const AccessorInfo& info) {
         HandleScope scope;
         ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(info.This());
         assert(zk);
         return zk->PasswordToHexString(zk->zhandle != 0 ?
-				       zoo_client_id(zk->zhandle)->passwd : zk->myid.passwd);
+                                       zoo_client_id(zk->zhandle)->passwd : zk->myid.passwd);
     }
 
     static Handle<Value> SessionTimeoutPropertyGetter (Local<String> property, const AccessorInfo& info) {
@@ -790,7 +790,7 @@ public:
 
         is_closed = true;
 
-	stopPollAndTimer();
+        stopPollAndTimer();
 
         if (zhandle) {
             LOG_DEBUG(("call zookeeper_close(%lp)", zhandle));
