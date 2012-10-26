@@ -254,13 +254,19 @@ public:
     }
 
     void stopPollAndTimer() {
-        if (uv_is_active((const uv_handle_t *)&zk_uvp_handle))
+        LOG_DEBUG(("entering stopPollAndTimer"));
+        if (uv_is_active((const uv_handle_t *)&zk_uvp_handle)) {
+            LOG_DEBUG(("stopping poll"));
             uv_poll_stop(&zk_uvp_handle);
-        if (uv_is_active((const uv_handle_t *)&zk_uvt_timer))
+        }
+        if (uv_is_active((const uv_handle_t *)&zk_uvt_timer)) {
+            LOG_DEBUG(("stopping timer"));
             uv_timer_stop(&zk_uvt_timer);
+        }
     }
 
     void startPollAndTimer(int fd, int interest, struct timeval *tv) {
+        LOG_DEBUG(("starting poll and timer"));
         int events;
         int timeout;
 
@@ -282,6 +288,7 @@ public:
     }
 
     void yield () {
+        LOG_DEBUG(("invoking yield"));
         int fd;
         int interest;
         int rc;
@@ -294,10 +301,13 @@ public:
         stopPollAndTimer();
 
         rc = zookeeper_interest(zhandle, &fd, &interest, &tv);
+        LOG_DEBUG(("zookeeper_interest returned %d", rc));
         if (rc) {
             LOG_ERROR(("yield:zookeeper_interest returned error: %d - %s\n",
                        rc,
                        zerror(rc)));
+            LOG_DEBUG(("invoking realclose"));
+            realClose();
             return;
         }
 
@@ -313,7 +323,7 @@ public:
             (revents & UV_WRITABLE? ZOOKEEPER_WRITE : 0);
         int rc = zookeeper_process(zk->zhandle, events);
         if (rc != ZOK) {
-            LOG_ERROR(("yield:zookeeper_process returned error: %d - %s\n", rc, zerror(rc)));
+            LOG_ERROR(("zookeeper_process returned error: %d - %s\n", rc, zerror(rc)));
         }
         zk->yield();
     }
@@ -325,6 +335,7 @@ public:
     }
 
     inline bool realInit (const char* hostPort, int session_timeout, clientid_t *client_id) {
+        LOG_DEBUG(("realInit fired"));
         myid = *client_id;
         zhandle = zookeeper_init(hostPort, main_watcher, session_timeout, &myid, this, 0);
         if (!zhandle) {
@@ -785,6 +796,7 @@ public:
     }
 
     void realClose () {
+        LOG_DEBUG(("invoking real close %s, %d", is_closed, zhandle));
         if (is_closed)
             return;
 
