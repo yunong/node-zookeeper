@@ -47,6 +47,9 @@ DEFINE_STRING (on_event_deleted,     "deleted");
 DEFINE_STRING (on_event_changed,     "changed");
 DEFINE_STRING (on_event_child,       "child");
 DEFINE_STRING (on_event_notwatching, "notwatching");
+DEFINE_STRING (on_session_expired, "session_expired");
+DEFINE_STRING (on_authentication_failure, "authentication_failed");
+DEFINE_STRING (on_error, "error");
 
 DEFINE_SYMBOL (HIDDEN_PROP_ZK);
 DEFINE_SYMBOL (HIDDEN_PROP_HANDBACK);
@@ -306,8 +309,10 @@ public:
             LOG_ERROR(("yield:zookeeper_interest returned error: %d - %s\n",
                        rc,
                        zerror(rc)));
-            LOG_DEBUG(("invoking realclose"));
-            realClose();
+            LOG_DEBUG(("emitting error"));
+            DoEmit(on_error, rc);
+            //LOG_DEBUG(("invoking realclose"));
+            //realClose();
             return;
         }
 
@@ -407,26 +412,27 @@ public:
         if (type == ZOO_SESSION_EVENT) {
             if (state == ZOO_CONNECTED_STATE) {
                 zk->myid = *(zoo_client_id(zzh));
-                zk->DoEmit (on_connected, path);
+                zk->DoEmit (on_connected, state, path);
             } else if (state == ZOO_CONNECTING_STATE) {
-                zk->DoEmit (on_connecting, path);
+                zk->DoEmit (on_connecting, state, path);
             } else if (state == ZOO_AUTH_FAILED_STATE) {
-                LOG_ERROR (("Authentication failure. Shutting down...\n"));
-                zk->realClose();
+                LOG_ERROR (("Authentication failure. \n"));
+                zk->DoEmit (on_authentication_failure, state, path);
             } else if (state == ZOO_EXPIRED_SESSION_STATE) {
-                LOG_ERROR (("Session expired. Shutting down...\n"));
-                zk->realClose();
+                LOG_ERROR (("Session expired. \n"));
+                //XXX this never actually emits anything
+                zk->DoEmit (on_session_expired, state, path);
             }
         } else if (type == ZOO_CREATED_EVENT){
-            zk->DoEmit (on_event_created, path);
+            zk->DoEmit (on_event_created, state, path);
         } else if (type == ZOO_DELETED_EVENT) {
-            zk->DoEmit (on_event_deleted, path);
+            zk->DoEmit (on_event_deleted, state, path);
         } else if (type == ZOO_CHANGED_EVENT) {
-            zk->DoEmit (on_event_changed, path);
+            zk->DoEmit (on_event_changed, state, path);
         } else if (type == ZOO_CHILD_EVENT) {
-            zk->DoEmit (on_event_child, path);
+            zk->DoEmit (on_event_child, state, path);
         } else if (type == ZOO_NOTWATCHING_EVENT) {
-            zk->DoEmit (on_event_notwatching, path);
+            zk->DoEmit (on_event_notwatching, state, path);
         } else {
             LOG_WARN(("Unknonwn watcher event type %s",type));
         }
@@ -464,26 +470,27 @@ public:
         }
     }
 
-    void DoEmit (Handle<String> event_name, const char* path = NULL) {
+    // XXX Does this actually emit the state and path up the stack?
+    void DoEmit (Handle<String> event_name, int state, const char* path = NULL) {
         HandleScope scope;
-        Local<Value> argv[3];
+        Local<Value> argv[4];
         argv[0] = Local<Value>::New(event_name);
         argv[1] = Local<Value>::New(handle_);
+        argv[3] = Int32::New(state);
         if (path != 0) {
             argv[2] = String::New(path);
-            LOG_DEBUG (("calling Emit(%s, path='%s')",
-                        *String::Utf8Value(event_name), path));
+            LOG_DEBUG (("calling Emit(%s, path='%s', state='%d')",
+                        *String::Utf8Value(event_name), path, state));
         } else {
             argv[2] = Local<Value>::New(Undefined());
-            LOG_DEBUG (("calling Emit(%s, path=null)", *String::Utf8Value(event_name)));
+            LOG_DEBUG (("calling Emit(%s, path=null, state='%d')", *String::Utf8Value(event_name), state));
         }
         Local<Value> emit_v = handle_->Get(String::NewSymbol("emit"));
         assert(emit_v->IsFunction());
         Local<Function> emit_fn = emit_v.As<Function>();
 
-
         TryCatch tc;
-        emit_fn->Call(handle_, 3, argv);
+        emit_fn->Call(handle_, 4, argv);
         if(tc.HasCaught()) {
             FatalException(tc);
         }
@@ -773,6 +780,7 @@ public:
         return zk->idAsString(zk->zhandle != 0 ?
                               zoo_client_id(zk->zhandle)->client_id : zk->myid.client_id);
     }
+
     static Handle<Value> ClientPasswordPropertyGetter (Local<String> property, const AccessorInfo& info) {
         HandleScope scope;
         ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(info.This());
@@ -810,7 +818,6 @@ public:
             zhandle = 0;
         }
         LOG_DEBUG(("zookeeper_close() returned"));
-        DoEmit (on_closed);
 
         Unref();
     }
@@ -820,6 +827,7 @@ public:
         ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());
         assert(zk);
         zk->realClose();
+        zk->DoEmit (on_closed, 0);
         return args.This();
     };
 
