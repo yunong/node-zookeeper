@@ -269,11 +269,11 @@ public:
     }
 
     void startPollAndTimer(int fd, int interest, struct timeval *tv) {
-        LOG_DEBUG(("starting poll and timer"));
         int events;
         int timeout;
 
         timeout = (tv->tv_sec * 1000) + (tv->tv_usec / 1000);
+        LOG_DEBUG(("starting poll and timer with timeout %d, tv %d", timeout, tv->tv_sec));
 
         events = (interest & ZOOKEEPER_READ ? UV_READABLE : 0) |
             (interest & ZOOKEEPER_WRITE ? UV_WRITABLE : 0);
@@ -305,7 +305,7 @@ public:
 
         rc = zookeeper_interest(zhandle, &fd, &interest, &tv);
         LOG_DEBUG(("zookeeper_interest returned %d", rc));
-        if (rc) {
+        if (rc == ZCONNECTIONLOSS) {
             LOG_ERROR(("yield:zookeeper_interest returned error: %d - %s\n",
                        rc,
                        zerror(rc)));
@@ -320,12 +320,37 @@ public:
     }
 
     static void zk_uv_cb (uv_poll_t* handle, int status, int revents) {
-
-        LOG_DEBUG(("zk_io_cb fired"));
+        LOG_DEBUG(("========================================="));
+        LOG_DEBUG(("zk_io_cb fired, status: %d, revents: %d", status, revents));
         ZooKeeper *zk = static_cast<ZooKeeper*>(handle->data);
         zk->stopPollAndTimer();
+        zhandle_t *zh = zk->zhandle;
         int events = (revents & UV_READABLE ? ZOOKEEPER_READ : 0) |
             (revents & UV_WRITABLE? ZOOKEEPER_WRITE : 0);
+
+        if (zoo_state(zh) == ZOO_CONNECTING_STATE) {
+            LOG_WARN(("zookeeper is (re)-connecting"));
+            if (status < 0) {
+                LOG_WARN(("uv_poll returned %d, zk connection timed out, closing fd", status));
+                zookeeper_close_fd(zh);
+                return zk->yield();
+            } else if (events) {
+                int error = 0;
+                socklen_t len = sizeof(error);
+                if (getsockopt(handle->fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0
+                        || error) {
+                    LOG_WARN(("zk connection error %d", error));
+                    zookeeper_close_fd(zh);
+                    return zk->yield();
+                } else {
+                    LOG_INFO(("(re)-connection completed"));
+                }
+            } else {
+                fprintf(stderr, "select error: fd not set");
+                zookeeper_close_fd(zh);
+                return zk->yield();
+            }
+        }
         int rc = zookeeper_process(zk->zhandle, events);
         if (rc != ZOK) {
             LOG_ERROR(("zookeeper_process returned error: %d - %s\n", rc, zerror(rc)));
@@ -334,6 +359,7 @@ public:
     }
 
     static void zk_timer_cb (uv_timer_t *handle, int status) {
+        LOG_DEBUG(("++++++++++++++++++++++++++++++++++++++++++"));
         LOG_DEBUG(("zk_timer_cb fired"));
         ZooKeeper *zk = static_cast<ZooKeeper*>(handle->data);
         zk->yield();
