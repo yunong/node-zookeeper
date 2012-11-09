@@ -305,15 +305,16 @@ public:
 
         rc = zookeeper_interest(zhandle, &fd, &interest, &tv);
         LOG_DEBUG(("zookeeper_interest returned %d", rc));
-        if (rc == ZCONNECTIONLOSS) {
+        if (rc < 0) {
             LOG_ERROR(("yield:zookeeper_interest returned error: %d - %s\n",
                        rc,
                        zerror(rc)));
             LOG_DEBUG(("emitting error"));
             DoEmit(on_error, rc);
-            //LOG_DEBUG(("invoking realclose"));
-            //realClose();
-            return;
+            if (rc == ZCONNECTIONLOSS || rc == ZSESSIONEXPIRED) {
+                LOG_ERROR(("not restarting poll and timer since connection/session expired"));
+                return;
+            }
         }
 
         startPollAndTimer(fd, interest, &tv);
@@ -409,6 +410,7 @@ public:
                       "ZK init: client id and password must either be both specified or unspecified");
         if (id_and_password_defined) {
             String::AsciiValue password_check(v8v_client_password->ToString());
+            LOG_WARN(("password is %s length %d", *password_check, password_check.length()));
             THROW_IF_NOT (password_check.length() == 2 * ZOOKEEPER_PASSWORD_BYTE_COUNT,
                           "ZK init: password does not have correct length");
             HexStringToPassword(v8v_client_password, local_client.passwd);
@@ -446,7 +448,6 @@ public:
                 zk->DoEmit (on_authentication_failure, state, path);
             } else if (state == ZOO_EXPIRED_SESSION_STATE) {
                 LOG_ERROR (("Session expired. \n"));
-                //XXX this never actually emits anything
                 zk->DoEmit (on_session_expired, state, path);
             }
         } else if (type == ZOO_CREATED_EVENT){
@@ -496,7 +497,6 @@ public:
         }
     }
 
-    // XXX Does this actually emit the state and path up the stack?
     void DoEmit (Handle<String> event_name, int state, const char* path = NULL) {
         HandleScope scope;
         Local<Value> argv[4];
@@ -849,6 +849,7 @@ public:
     }
 
     static Handle<Value> Close (const Arguments& args) {
+        LOG_DEBUG(("invoking close"));
         HandleScope scope;
         ZooKeeper *zk = ObjectWrap::Unwrap<ZooKeeper>(args.This());
         assert(zk);
