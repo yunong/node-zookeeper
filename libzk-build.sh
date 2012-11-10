@@ -14,7 +14,7 @@ ZK_URL=https://download.joyent.com/pub/zookeeper/zookeeper-3.4.3.tar.gz
 mkdir -p $BUILD_TMP
 if [ ! -e "$ZK_FILE" ] ; then
 echo "Downloading $ZK from $ZK_URL"
-wget $ZK_URL -O $ZK_FILE
+wget --no-check-certificate $ZK_URL -O $ZK_FILE
 if [ $? != 0 ] ; then
     echo "Unable to download zookeeper library"
     exit 1
@@ -42,12 +42,8 @@ if [ "$PLATFORM" != "SunOS" ]; then
     cd $ROOT
 else
     ./configure \
-        LIBS="-lnsl -lsocket"
-        CPPFLAGS="POSIX_PTHREAD_SEMANTICS"
-        --without-syncapi \
-        --enable-static \
-        --disable-shared \
-        --with-pic \
+        LIBS="-lnsl -lsocket" \
+        CPPFLAGS="-D_POSIX_PTHREAD_SEMANTICS" \
         --prefix=$BUILD && \
         make && \
         make install
