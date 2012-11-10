@@ -13,7 +13,8 @@
         ['OS=="solaris"', {
           'cflags': ['-Wno-strict-aliasing'],
           'defines': ['_POSIX_PTHREAD_SEMANTICS'],
-          'include_dirs': ['/opt/local/include/zookeeper'],
+          'include_dirs': ['<(module_root_dir)/build/zk/include/zookeeper'],
+          'libraries': ['<(module_root_dir)/build/zk/lib/libzookeeper_st.a'],
           'ldflags': ['-lzookeeper_st'],
         }],['OS=="mac"',{
           'include_dirs': ['<(module_root_dir)/build/zk/include/zookeeper'],
