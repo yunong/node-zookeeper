@@ -42,6 +42,8 @@ using namespace node;
 DEFINE_STRING (on_closed,            "close");
 DEFINE_STRING (on_connected,         "connect");
 DEFINE_STRING (on_connecting,        "connecting");
+DEFINE_STRING (on_reconnected,       "reconnect");
+DEFINE_STRING (on_connection_int,       "connection_interrupted");
 DEFINE_STRING (on_event_created,     "created");
 DEFINE_STRING (on_event_deleted,     "deleted");
 DEFINE_STRING (on_event_changed,     "changed");
@@ -331,24 +333,34 @@ public:
 
         if (zoo_state(zh) == ZOO_CONNECTING_STATE) {
             LOG_WARN(("zookeeper is (re)-connecting"));
+            /* This is from Unix Networking Programming - Vol 1, 2nd Edition,
+             * pg 411. It's slightly different as lib-uv returns -1 on fd
+             * error, instead of 0 for select(). */
             if (status < 0) {
                 LOG_WARN(("uv_poll returned %d, zk connection timed out, closing fd", status));
                 zookeeper_close_fd(zh);
+                zk->DoEmit(on_connection_int, NULL, NULL);
                 return zk->yield();
-            } else if (events) {
+            }
+            /* Otherwise, if there are events, and getsockopt doesn't return
+             * error, we have successfully re-connected. */
+            if (events) {
                 int error = 0;
                 socklen_t len = sizeof(error);
                 if (getsockopt(handle->fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0
                         || error) {
                     LOG_WARN(("zk connection error %d", error));
                     zookeeper_close_fd(zh);
+                    zk->DoEmit(on_connection_int, NULL, NULL);
                     return zk->yield();
                 } else {
                     LOG_INFO(("(re)-connection completed"));
+                    zk->DoEmit(on_reconnected, NULL, NULL);
                 }
             } else {
                 fprintf(stderr, "select error: fd not set");
                 zookeeper_close_fd(zh);
+                zk->DoEmit(on_connection_int, NULL, NULL);
                 return zk->yield();
             }
         }
