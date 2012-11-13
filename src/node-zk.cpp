@@ -338,7 +338,7 @@ public:
             if (status < 0) {
                 LOG_WARN(("uv_poll returned %d, zk connection timed out, closing fd", status));
                 zookeeper_close_fd(zh);
-                zk->DoEmit(on_connection_int, NULL, NULL);
+                zk->DoEmit(on_connection_int, zoo_state(zh));
                 return zk->yield();
             }
             /* Otherwise, if there are events, and getsockopt doesn't return
@@ -350,16 +350,16 @@ public:
                         || error) {
                     LOG_WARN(("zk connection error %d", error));
                     zookeeper_close_fd(zh);
-                    zk->DoEmit(on_connection_int, NULL, NULL);
+                    zk->DoEmit(on_connection_int, zoo_state(zh));
                     return zk->yield();
                 } else {
                     LOG_INFO(("(re)-connection completed"));
-                    zk->DoEmit(on_connected, NULL, NULL);
+                    zk->DoEmit(on_connected, zoo_state(zh));
                 }
             } else {
                 fprintf(stderr, "select error: fd not set");
                 zookeeper_close_fd(zh);
-                zk->DoEmit(on_connection_int, NULL, NULL);
+                zk->DoEmit(on_connection_int, zoo_state(zh));
                 return zk->yield();
             }
         }
