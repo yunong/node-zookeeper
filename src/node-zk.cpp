@@ -42,8 +42,7 @@ using namespace node;
 DEFINE_STRING (on_closed,            "close");
 DEFINE_STRING (on_connected,         "connect");
 DEFINE_STRING (on_connecting,        "connecting");
-DEFINE_STRING (on_reconnected,       "reconnect");
-DEFINE_STRING (on_connection_int,       "connection_interrupted");
+DEFINE_STRING (on_connection_int,    "connection_interrupted");
 DEFINE_STRING (on_event_created,     "created");
 DEFINE_STRING (on_event_deleted,     "deleted");
 DEFINE_STRING (on_event_changed,     "changed");
@@ -355,7 +354,7 @@ public:
                     return zk->yield();
                 } else {
                     LOG_INFO(("(re)-connection completed"));
-                    zk->DoEmit(on_reconnected, NULL, NULL);
+                    zk->DoEmit(on_connected, NULL, NULL);
                 }
             } else {
                 fprintf(stderr, "select error: fd not set");
