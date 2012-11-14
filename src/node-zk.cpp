@@ -485,10 +485,10 @@ public:
                 zk->DoEmit (on_connecting, state, path);
             } else if (state == ZOO_AUTH_FAILED_STATE) {
                 LOG_ERROR (("Authentication failure. \n"));
-                zk->DoEmit (on_authentication_failure, state, path);
+                zk->DoEmit (on_error, state, path);
             } else if (state == ZOO_EXPIRED_SESSION_STATE) {
                 LOG_ERROR (("Session expired. \n"));
-                zk->DoEmit (on_session_expired, state, path);
+                zk->DoEmit (on_error, state, path);
             }
         } else if (type == ZOO_CREATED_EVENT){
             zk->DoEmit (on_event_created, state, path);
