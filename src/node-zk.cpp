@@ -42,13 +42,13 @@ using namespace node;
 DEFINE_STRING (on_closed,            "close");
 DEFINE_STRING (on_connected,         "connect");
 DEFINE_STRING (on_connecting,        "connecting");
-DEFINE_STRING (on_not_connected,    "not_connected");
+DEFINE_STRING (on_not_connected,     "not_connected");
 DEFINE_STRING (on_event_created,     "created");
 DEFINE_STRING (on_event_deleted,     "deleted");
 DEFINE_STRING (on_event_changed,     "changed");
 DEFINE_STRING (on_event_child,       "child");
 DEFINE_STRING (on_event_notwatching, "notwatching");
-DEFINE_STRING (on_session_expired, "session_expired");
+DEFINE_STRING (on_session_expired,   "session_expired");
 DEFINE_STRING (on_authentication_failure, "authentication_failed");
 DEFINE_STRING (on_error, "error");
 
@@ -317,6 +317,8 @@ public:
 
         rc = zookeeper_interest(zhandle, &fd, &interest, &tv);
         LOG_DEBUG(("zookeeper_interest returned %d", rc));
+        //XXX: for some reason, the emits here are received before the emits in
+        //watcher, even tho they fire first.
         if (rc < 0) {
             LOG_WARN(("yield:zookeeper_interest returned error: %d - %s\n",
                        rc,
@@ -336,11 +338,23 @@ public:
                 LOG_INFO(("starting timer only, connection has been lost."));
                 startTimer(&tv);
                 return;
-            } else {
-                LOG_DEBUG(("emitting error"));
+            } else if (rc == ZOPERATIONTIMEOUT) {
+                /* this we bubble up the stack, but we can safely continue
+                 * polling and start the timer. Since the fd is still
+                 * connected. upstack clients should probably ignore this error
+                 */
+                LOG_WARN(("emitting error: ZOPERATIONTIMEOUT"));
                 DoEmit(on_error, rc);
                 LOG_INFO(("starting poll and timer with fd, interest", fd, interest));
                 startPollAndTimer(fd, interest, &tv);
+                return;
+            } else {
+                /* all other errors we want to emit up the stack and stop
+                 * polling. Otherwise we run out of memory here spinning in the
+                 * poll loop
+                 */
+                LOG_DEBUG(("emitting other error %d, not restarting timer and poll", rc));
+                DoEmit(on_error, rc);
                 return;
             }
         } else {
@@ -486,9 +500,16 @@ public:
             } else if (state == ZOO_AUTH_FAILED_STATE) {
                 LOG_ERROR (("Authentication failure. \n"));
                 zk->DoEmit (on_error, state, path);
+                /* actually close the handle here, otherwise this event doesn't
+                 * show up before lib_uv_poll runs, which will result in
+                 * zk_interest returning INVALIDSTATE instead of this state.
+                 * Since libuv somehow pre-empts this emit for the one in
+                 * yield() */
+                zk->realClose();
             } else if (state == ZOO_EXPIRED_SESSION_STATE) {
                 LOG_ERROR (("Session expired. \n"));
                 zk->DoEmit (on_error, state, path);
+                zk->realClose();
             }
         } else if (type == ZOO_CREATED_EVENT){
             zk->DoEmit (on_event_created, state, path);
