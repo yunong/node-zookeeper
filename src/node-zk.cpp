@@ -291,6 +291,17 @@ public:
         uv_timer_start(&zk_uvt_timer, zk_timer_cb, timeout, 0);
     }
 
+    void startTimer(struct timeval *tv) {
+        int timeout;
+        timeout = (tv->tv_sec * 1000) + (tv->tv_usec / 1000);
+        LOG_DEBUG(("starting timer with timeout %d, tv %d", timeout, tv->tv_sec));
+
+        uv_timer_init(uv_default_loop(), &zk_uvt_timer);
+        zk_uvp_handle.data = zk_uvt_timer.data = this;
+
+        uv_timer_start(&zk_uvt_timer, zk_timer_cb, timeout, 0);
+    }
+
     void yield () {
         LOG_DEBUG(("invoking yield"));
         int fd;
@@ -307,18 +318,36 @@ public:
         rc = zookeeper_interest(zhandle, &fd, &interest, &tv);
         LOG_DEBUG(("zookeeper_interest returned %d", rc));
         if (rc < 0) {
-            LOG_ERROR(("yield:zookeeper_interest returned error: %d - %s\n",
+            LOG_WARN(("yield:zookeeper_interest returned error: %d - %s\n",
                        rc,
                        zerror(rc)));
-            LOG_DEBUG(("emitting error"));
-            DoEmit(on_error, rc);
-            if (rc == ZCONNECTIONLOSS || rc == ZSESSIONEXPIRED) {
-                LOG_ERROR(("not restarting poll and timer since connection/session expired"));
+            if (rc == ZSESSIONEXPIRED) {
+                LOG_ERROR(("not restarting poll and timer since session expired"));
+                LOG_DEBUG(("emitting error, session expired"));
+                DoEmit(on_error, rc);
+                return;
+            } else if (rc == ZCONNECTIONLOSS) {
+                /* there's no need to close the file descriptor here, as
+                 * zk_interest automatically closes it when the connection is
+                 * lost.
+                 */
+                LOG_WARN(("emitting not_connected"));
+                DoEmit(on_not_connected, rc);
+                LOG_INFO(("starting timer only, connection has been lost."));
+                startTimer(&tv);
+                return;
+            } else {
+                LOG_DEBUG(("emitting error"));
+                DoEmit(on_error, rc);
+                LOG_INFO(("starting poll and timer with fd, interest", fd, interest));
+                startPollAndTimer(fd, interest, &tv);
                 return;
             }
+        } else {
+            LOG_INFO(("starting poll and timer with fd, interest", fd, interest));
+            startPollAndTimer(fd, interest, &tv);
         }
 
-        startPollAndTimer(fd, interest, &tv);
     }
 
     static void zk_uv_cb (uv_poll_t* handle, int status, int revents) {
