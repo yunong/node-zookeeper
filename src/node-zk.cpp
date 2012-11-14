@@ -42,7 +42,7 @@ using namespace node;
 DEFINE_STRING (on_closed,            "close");
 DEFINE_STRING (on_connected,         "connect");
 DEFINE_STRING (on_connecting,        "connecting");
-DEFINE_STRING (on_connection_int,    "connection_interrupted");
+DEFINE_STRING (on_not_connected,    "not_connected");
 DEFINE_STRING (on_event_created,     "created");
 DEFINE_STRING (on_event_deleted,     "deleted");
 DEFINE_STRING (on_event_changed,     "changed");
@@ -367,7 +367,7 @@ public:
             if (status < 0) {
                 LOG_WARN(("uv_poll returned %d, zk connection timed out, closing fd", status));
                 zookeeper_close_fd(zh);
-                zk->DoEmit(on_connection_int, zoo_state(zh));
+                zk->DoEmit(on_not_connected, zoo_state(zh));
                 return zk->yield();
             }
             /* Otherwise, if there are events, and getsockopt doesn't return
@@ -379,7 +379,7 @@ public:
                         || error) {
                     LOG_WARN(("zk connection error %d", error));
                     zookeeper_close_fd(zh);
-                    zk->DoEmit(on_connection_int, zoo_state(zh));
+                    zk->DoEmit(on_not_connected, zoo_state(zh));
                     return zk->yield();
                 } else {
                     LOG_INFO(("(re)-connection completed"));
@@ -388,7 +388,7 @@ public:
             } else {
                 fprintf(stderr, "select error: fd not set");
                 zookeeper_close_fd(zh);
-                zk->DoEmit(on_connection_int, zoo_state(zh));
+                zk->DoEmit(on_not_connected, zoo_state(zh));
                 return zk->yield();
             }
         }
