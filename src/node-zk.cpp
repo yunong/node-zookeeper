@@ -286,6 +286,7 @@ public:
         uv_poll_init(uv_default_loop(), &zk_uvp_handle, fd);
         uv_timer_init(uv_default_loop(), &zk_uvt_timer);
         zk_uvp_handle.data = zk_uvt_timer.data = this;
+        zk_uvp_fd = fd;
 
         uv_poll_start(&zk_uvp_handle, events, zk_uv_cb);
         uv_timer_start(&zk_uvt_timer, zk_timer_cb, timeout, 0);
@@ -345,7 +346,7 @@ public:
                  */
                 LOG_WARN(("emitting error: ZOPERATIONTIMEOUT"));
                 DoEmit(on_error, rc);
-                LOG_INFO(("starting poll and timer with fd, interest", fd, interest));
+                LOG_INFO(("starting poll and timer with fd %d, interest %d", fd, interest));
                 startPollAndTimer(fd, interest, &tv);
                 return;
             } else {
@@ -358,7 +359,7 @@ public:
                 return;
             }
         } else {
-            LOG_INFO(("starting poll and timer with fd, interest", fd, interest));
+            LOG_INFO(("starting poll and timer with fd %d, interest %d", fd, interest));
             startPollAndTimer(fd, interest, &tv);
         }
 
@@ -389,7 +390,7 @@ public:
             if (events) {
                 int error = 0;
                 socklen_t len = sizeof(error);
-                if (getsockopt(handle->fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0
+                if (getsockopt(zk->zk_uvp_fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0
                         || error) {
                     LOG_WARN(("zk connection error %d", error));
                     zookeeper_close_fd(zh);
@@ -936,9 +937,12 @@ private:
     const char *clientIdFile;
     uv_poll_t zk_uvp_handle;
     uv_timer_t zk_uvt_timer;
+    int zk_uvp_fd;
     bool is_closed;
 };
 
 extern "C" void init(Handle<Object> target) {
     ZooKeeper::Initialize(target);
 }
+
+NODE_MODULE(zookeeper, init)
