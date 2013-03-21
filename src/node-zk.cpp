@@ -925,7 +925,7 @@ public:
     }
 
 
-    ZooKeeper () : zhandle(0), clientIdFile(0) {
+    ZooKeeper () : zhandle(0) {
         ZERO_MEM (myid);
         ZERO_MEM (zk_uvp_handle);
         ZERO_MEM (zk_uvt_timer);
@@ -934,7 +934,6 @@ public:
 private:
     zhandle_t *zhandle;
     clientid_t myid;
-    const char *clientIdFile;
     uv_poll_t zk_uvp_handle;
     uv_timer_t zk_uvt_timer;
     int zk_uvp_fd;
