@@ -40,6 +40,7 @@ if [ "$PLATFORM" != "SunOS" ]; then
             exit 1
     fi
     cd $ROOT
+    rm -rf $BUILD_TMP
 else
     ./configure \
         LIBS="-lnsl -lsocket" \
@@ -52,4 +53,5 @@ else
             exit 1
     fi
     cd $ROOT
+    rm -rf $BUILD_TMP
 fi
