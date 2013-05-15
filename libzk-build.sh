@@ -13,12 +13,11 @@ ZK_URL=https://download.joyent.com/pub/zookeeper/zookeeper-3.4.3.tar.gz
 
 mkdir -p $BUILD_TMP
 if [ ! -e "$ZK_FILE" ] ; then
-echo "Downloading $ZK from $ZK_URL"
-wget --no-check-certificate $ZK_URL -O $ZK_FILE
-if [ $? != 0 ] ; then
-    echo "Unable to download zookeeper library"
-    exit 1
-fi
+    echo "Downloading $ZK from $ZK_URL"
+    # Tries wget, then curl to download zookeeper
+    wget --no-check-certificate $ZK_URL -O $ZK_FILE 2>/dev/null || curl -k -o $ZK_FILE $ZK_URL 2>/dev/null || {
+        echo >&2 "Unable to download zookeeper library. (Neither wget nor curl is installed)"; exit 1;
+    }
 fi
 
 cd $BUILD_TMP
