@@ -6,10 +6,10 @@ ROOT=`pwd`
 BUILD=$ROOT/build/zk
 BUILD_TMP=$BUILD/tmp
 PLATFORM=`uname`
-ZK=zookeeper-3.4.3
+ZK=zookeeper-3.4.4
 ZK_FILE=/$BUILD_TMP/$ZK.tar.gz
 
-ZK_URL=https://download.joyent.com/pub/zookeeper/zookeeper-3.4.3.tar.gz
+ZK_URL=https://github.com/yunong/zookeeper/archive/3.4.4.tar.gz
 
 mkdir -p $BUILD_TMP
 if [ ! -e "$ZK_FILE" ] ; then
@@ -22,7 +22,9 @@ fi
 
 cd $BUILD_TMP
 
-tar -zxf $ZK_FILE && \
+tar -zxf $ZK_FILE
+cd $ZK
+tar -zxf $ZK.tar.gz
 cd $ZK/src/c
 
 if [ "$PLATFORM" != "SunOS" ]; then
