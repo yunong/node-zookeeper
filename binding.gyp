@@ -10,7 +10,10 @@
       "sources": [ "src/node-zk.cpp" ],
       'cflags': ['-Wall', '-O0'],
       'conditions': [
-        ['OS=="solaris"', {
+        ['OS=="freebsd"', {
+          'include_dirs': ['<(module_root_dir)/build/zk/include/zookeeper'],
+          'libraries': ['<(module_root_dir)/build/zk/lib/libzookeeper_st.a'],
+        }],['OS=="solaris"', {
           'include_dirs': ['<(module_root_dir)/build/zk/include/zookeeper'],
           'libraries': ['<(module_root_dir)/build/zk/lib/libzookeeper_st.a'],
         }],['OS=="mac"',{
